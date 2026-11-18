@@ -16,7 +16,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '1.3.0';
+  var VERSION = '1.3.1';
   var MARK_CORE = '[[AB_CORE]]';
   var MARK_ANCHOR = '[[AB_ANCHOR]]';
   var MARK_TAIL = '[[AB_TAIL]]';
@@ -51,6 +51,7 @@
     maxContinue: 3,
     autoRetry: false,
     maxRetry: 2,
+    preferFile: false,
     debug: false
   };
 
@@ -534,6 +535,172 @@
   /* 设置面板                                                             */
   /* ------------------------------------------------------------------ */
 
+  /* ------------------------------------------------------------------ */
+  /* v1.3.1 兜底编辑通道：浮动按钮 + 全屏编辑器                            */
+  /* 不依赖 ST 的设置抽屉，抽屉被重绘也照样能改                            */
+  /* ------------------------------------------------------------------ */
+
+  var saveState = '未保存';
+
+  function extBase() {
+    try {
+      var ss = document.querySelectorAll('script[src*="armorbreaker"]');
+      for (var i = 0; i < ss.length; i++) {
+        var p = String(ss[i].getAttribute('src') || '').split('?')[0];
+        if (p.indexOf('index.js') !== -1) return p.replace(/index\.js$/, '');
+        return p.replace(/[^/]*$/, '');
+      }
+    } catch (e) { /* ignore */ }
+    return 'scripts/extensions/third-party/armorbreaker/';
+  }
+
+  function loadExternalFiles() {
+    if (!settings || !settings.preferFile) return;
+    var base = extBase();
+    var coreUrl = base + 'prompts/core.txt';
+    var anchorUrl = base + 'prompts/anchor.txt';
+    var get = function (u) {
+      return fetch(u, { cache: 'no-store' }).then(function (r) {
+        return r.ok ? r.text() : '';
+      }).catch(function () { return ''; });
+    };
+    get(coreUrl).then(function (txt) {
+      var t = String(txt || '').trim();
+      if (!t) return;
+      settings.templateTexts = settings.templateTexts || {};
+      settings.templateTexts.custom = t;
+      settings.template = 'custom';
+      commit();
+      toast('破甲：已读取 prompts/core.txt（' + t.length + ' 字）');
+    });
+    get(anchorUrl).then(function (txt) {
+      var t = String(txt || '').trim();
+      if (!t) return;
+      settings.anchorText = t;
+      settings.anchorEnabled = true;
+      commit();
+      toast('破甲：已读取 prompts/anchor.txt（' + t.length + ' 字）');
+    });
+  }
+
+  function ensureFab() {
+    if (el('ab-fab')) return;
+    var b = document.createElement('div');
+    b.id = 'ab-fab';
+    b.textContent = '破甲';
+    b.setAttribute('style', 'position:fixed;left:10px;bottom:92px;z-index:9998;padding:8px 11px;border-radius:20px;background:rgba(184,50,54,.92);color:#fff;font-size:12px;box-shadow:0 2px 10px rgba(0,0,0,.5);user-select:none;');
+    b.addEventListener('click', function () { openEditor(); });
+    document.body.appendChild(b);
+  }
+
+  function modalButton(label, id, bg) {
+    var b = document.createElement('div');
+    b.id = id;
+    b.textContent = label;
+    b.setAttribute('style', 'flex:1;text-align:center;padding:10px;border-radius:8px;background:' + bg + ';color:#fff;cursor:pointer;font-size:13px;');
+    return b;
+  }
+
+  function openEditor() {
+    if (el('ab-modal')) { el('ab-modal').style.display = 'flex'; return; }
+    if (!settings) return;
+    var box = document.createElement('div');
+    box.id = 'ab-modal';
+    box.setAttribute('style', 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.78);display:flex;flex-direction:column;padding:12px;gap:8px;');
+
+    var title = document.createElement('div');
+    title.textContent = '破甲 · 模板编辑 — ' + ((TEMPLATES[settings.template] || {}).label || settings.template);
+    title.setAttribute('style', 'color:#fff;font-weight:600;font-size:14px;');
+
+    var ta = document.createElement('textarea');
+    ta.id = 'ab-modal-core';
+    ta.value = coreTextFor(settings.template);
+    ta.setAttribute('style', 'flex:1;width:100%;box-sizing:border-box;font:13px/1.55 monospace;padding:10px;border-radius:8px;background:#15171c;color:#e6e6e6;border:1px solid #3a3f4b;');
+
+    var ta2 = document.createElement('textarea');
+    ta2.id = 'ab-modal-anchor';
+    ta2.value = settings.anchorText || '';
+    ta2.placeholder = '常驻锚：永远注入的一段，放角色卡的尺度条目';
+    ta2.setAttribute('style', 'height:96px;width:100%;box-sizing:border-box;font:13px/1.55 monospace;padding:10px;border-radius:8px;background:#15171c;color:#e6e6e6;border:1px solid #3a3f4b;');
+
+    var row = document.createElement('div');
+    row.setAttribute('style', 'display:flex;gap:8px;');
+    var save = modalButton('保存并生效', 'ab-modal-save', '#b83236');
+    var reset = modalButton('恢复默认', 'ab-modal-reset', '#33373f');
+    var cp = modalButton('复制', 'ab-modal-copy', '#33373f');
+    var close = modalButton('关闭', 'ab-modal-close', '#33373f');
+    row.appendChild(save); row.appendChild(reset); row.appendChild(cp); row.appendChild(close);
+
+    var tip = document.createElement('div');
+    tip.setAttribute('style', 'color:#9aa0aa;font-size:11px;line-height:1.5;');
+    tip.textContent = '保存后立刻生效。想彻底脱离面板改：把这段文字存成 armorbreaker/prompts/core.txt，再勾上「启动读文件」。';
+
+    box.appendChild(title); box.appendChild(ta); box.appendChild(ta2); box.appendChild(row); box.appendChild(tip);
+    document.body.appendChild(box);
+
+    save.addEventListener('click', function () {
+      settings.templateTexts = settings.templateTexts || {};
+      settings.templateTexts[settings.template] = ta.value;
+      settings.anchorText = ta2.value;
+      try { document.activeElement && document.activeElement.blur(); } catch (e) { /* ignore */ }
+      commit();
+      toast('已保存并生效（' + ta.value.length + ' 字）');
+    });
+    reset.addEventListener('click', function () {
+      settings.templateTexts = settings.templateTexts || {};
+      delete settings.templateTexts[settings.template];
+      ta.value = coreTextFor(settings.template);
+      try { document.activeElement && document.activeElement.blur(); } catch (e) { /* ignore */ }
+      commit();
+      toast('已恢复本模板默认正文');
+    });
+    cp.addEventListener('click', function () { copyText(ta.value, '正文已复制'); });
+    close.addEventListener('click', function () { box.style.display = 'none'; });
+  }
+
+  function exportSettings() {
+    try {
+      var data = JSON.stringify(settings, null, 2);
+      var blob = new Blob([data], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'armorbreaker-settings.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 3000);
+      copyText(data, '配置已下载，同时复制到剪贴板');
+    } catch (e) { toast('导出失败'); }
+  }
+
+  function importSettings() {
+    var inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = '.json,application/json';
+    inp.style.display = 'none';
+    inp.addEventListener('change', function () {
+      var f = inp.files && inp.files[0];
+      if (!f) return;
+      var fr = new FileReader();
+      fr.onload = function () {
+        try {
+          var obj = JSON.parse(String(fr.result));
+          var next = {};
+          for (var k in DEFAULTS) next[k] = (obj[k] === undefined || obj[k] === null) ? DEFAULTS[k] : obj[k];
+          if (!next.templateTexts || typeof next.templateTexts !== 'object') next.templateTexts = {};
+          settings = next;
+          commit();
+          toast('配置已导入');
+        } catch (e) { toast('导入失败：不是有效 JSON'); }
+      };
+      fr.readAsText(f);
+    });
+    document.body.appendChild(inp);
+    inp.click();
+    setTimeout(function () { try { inp.remove(); } catch (e) { /* ignore */ } }, 60000);
+  }
+
   function optionHtml() {
     var out = '';
     for (var k in TEMPLATES) {
@@ -582,6 +749,12 @@
     h.push('      <div class="ab-btn" id="ab-copyall">复制完整注入</div>');
     h.push('      <div class="ab-btn" id="ab-reset">恢复全部默认</div>');
     h.push('    </div>');
+    h.push('    <div class="ab-actions">');
+    h.push('      <div class="ab-btn" id="ab-open-editor">全屏编辑</div>');
+    h.push('      <div class="ab-btn" id="ab-export">导出配置</div>');
+    h.push('      <div class="ab-btn" id="ab-import">导入配置</div>');
+    h.push('    </div>');
+    h.push('    <div class="ab-checks"><label class="ab-check"><input type="checkbox" id="ab-preferfile"><span>启动读 prompts/core.txt</span></label></div>');
     h.push('    <div class="ab-stat" id="ab-stat"></div>');
     h.push('  </div>');
     h.push('</div>');
@@ -606,6 +779,12 @@
 
   function syncUI() {
     if (!settings) return;
+    /* 正在某个输入框里打字时不回写，免得输入被覆盖 */
+    var act = document.activeElement;
+    if (act && act.id && act.id.indexOf('ab-') === 0 && act.tagName !== 'SELECT' && act.type !== 'checkbox') {
+      refreshStat();
+      return;
+    }
     var e;
     if ((e = el('ab-enabled'))) e.checked = !!settings.enabled;
     if ((e = el('ab-template'))) e.value = settings.template;
@@ -620,6 +799,7 @@
     if ((e = el('ab-prefill'))) e.checked = !!settings.prefill;
     if ((e = el('ab-autoretry'))) e.checked = !!settings.autoRetry;
     if ((e = el('ab-softcontinue'))) e.checked = !!settings.softContinue;
+    if ((e = el('ab-preferfile'))) e.checked = !!settings.preferFile;
     if ((e = el('ab-debug'))) e.checked = !!settings.debug;
     if ((e = el('ab-tail'))) e.value = settings.tailText || '';
     if ((e = el('ab-prefill-text'))) e.value = settings.prefillText || '';
@@ -722,6 +902,10 @@
       commit();
       toast('已恢复全部默认');
     });
+    if ((e = el('ab-open-editor'))) e.addEventListener('click', function () { openEditor(); });
+    if ((e = el('ab-export'))) e.addEventListener('click', function () { exportSettings(); });
+    if ((e = el('ab-import'))) e.addEventListener('click', function () { importSettings(); });
+    if ((e = el('ab-preferfile'))) e.addEventListener('change', function () { settings.preferFile = e.checked; commit(); });
   }
 
   function renderPanel() {
@@ -842,7 +1026,20 @@
       if (++panelTries < 40) setTimeout(waitPanel, 500);
     })();
 
-    try { window.ArmorBreaker = { version: VERSION, applyPrompt: applyPrompt, status: function () { return settings; } }; } catch (e) { /* ignore */ }
+    try { ensureFab(); } catch (e) { /* ignore */ }
+    loadExternalFiles();
+
+    try {
+      var hostEl = el('extensions_settings2') || el('extensions_settings');
+      if (hostEl && window.MutationObserver) {
+        var mo = new MutationObserver(function () {
+          if (!el('ab-panel')) { renderPanel(); addMenuButton(); }
+        });
+        mo.observe(hostEl, { childList: true });
+      }
+    } catch (e) { /* ignore */ }
+
+    try { window.ArmorBreaker = { version: VERSION, applyPrompt: applyPrompt, openEditor: openEditor, status: function () { return settings; } }; } catch (e) { /* ignore */ }
     log('已加载', { version: VERSION, provider: providerKind() });
   }
 
