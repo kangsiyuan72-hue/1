@@ -1,0 +1,114 @@
+/* 破甲 · ArmorBreaker 样式 */
+.ab-host { width: 100%; }
+/* v1.2.0 模板正文编辑器 */
+.ab-core-block { gap: 6px; }
+.ab-core-head { display: flex; align-items: center; justify-content: space-between; }
+.ab-mini { opacity: .5; font-size: .78em; }
+.ab-badge {
+  display: inline-block; margin-left: 6px; padding: 0 5px;
+  border-radius: 4px; font-size: .72em;
+  background: rgba(229, 72, 77, .85); color: #fff;
+}
+.ab-actions-sm .ab-btn { padding: 5px 8px; font-size: .84em; }
+#ab-core { min-height: 150px; font-size: .86em; }
+
+
+.ab-card {
+  margin: 8px 0 12px;
+  border: 1px solid var(--SmartThemeBorderColor, #3a3f4b);
+  border-radius: 10px;
+  background: var(--black30a, rgba(0, 0, 0, .25));
+  overflow: hidden;
+  font-size: 0.95em;
+}
+
+.ab-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: linear-gradient(90deg, rgba(190, 40, 60, .22), rgba(190, 40, 60, 0));
+  border-bottom: 1px solid var(--SmartThemeBorderColor, #3a3f4b);
+}
+
+.ab-head-left { display: flex; align-items: center; gap: 6px; }
+
+.ab-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #e5484d; box-shadow: 0 0 6px #e5484d;
+  display: inline-block; flex: 0 0 auto;
+}
+
+.ab-title { font-weight: 600; letter-spacing: .5px; }
+.ab-ver { opacity: .5; font-size: .8em; }
+
+.ab-body { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+
+.ab-row { display: flex; flex-direction: column; gap: 4px; }
+.ab-row-2 { flex-direction: row; align-items: center; justify-content: space-between; }
+.ab-row-3 { flex-direction: row; gap: 8px; }
+.ab-row-3 > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+
+.ab-label { opacity: .75; font-size: .85em; }
+
+.ab-input {
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--SmartThemeBorderColor, #3a3f4b);
+  background: var(--black50a, rgba(0, 0, 0, .35));
+  color: inherit;
+  font-size: .9em;
+  box-sizing: border-box;
+}
+
+.ab-ta { resize: vertical; font-family: inherit; line-height: 1.45; }
+
+.ab-checks { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+
+.ab-check { display: flex; align-items: center; gap: 5px; font-size: .88em; opacity: .9; cursor: pointer; }
+.ab-check input { accent-color: #e5484d; }
+
+.ab-actions { display: flex; gap: 8px; margin-top: 2px; }
+
+.ab-btn {
+  flex: 1;
+  text-align: center;
+  padding: 7px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--SmartThemeBorderColor, #3a3f4b);
+  background: var(--black50a, rgba(0, 0, 0, .3));
+  cursor: pointer;
+  user-select: none;
+  font-size: .9em;
+  transition: all .15s ease;
+}
+
+.ab-btn:active { transform: scale(.97); }
+.ab-btn:hover { border-color: #e5484d; }
+
+.ab-primary {
+  background: linear-gradient(180deg, #e5484d, #b83236);
+  border-color: #e5484d;
+  color: #fff;
+  font-weight: 600;
+}
+
+.ab-stat { opacity: .6; font-size: .8em; line-height: 1.4; }
+
+/* 开关 */
+.ab-switch { position: relative; width: 40px; height: 22px; display: inline-block; flex: 0 0 auto; }
+.ab-switch input { display: none; }
+.ab-switch i {
+  position: absolute; inset: 0; border-radius: 22px;
+  background: rgba(255, 255, 255, .18);
+  border: 1px solid var(--SmartThemeBorderColor, #3a3f4b);
+  transition: background .2s ease;
+}
+.ab-switch i::after {
+  content: ''; position: absolute; left: 3px; top: 3px;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: #ddd; transition: transform .2s ease;
+}
+.ab-switch input:checked + i { background: rgba(229, 72, 77, .85); border-color: #e5484d; }
+.ab-switch input:checked + i::after { transform: translateX(18px); background: #fff; }
