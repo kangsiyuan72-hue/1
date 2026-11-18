@@ -16,7 +16,8 @@
 (function () {
   'use strict';
 
-  var VERSION = '1.3.2';
+  var VERSION = '1.3.3';
+  var BUILD = 'bt-1118-1';
   var MARK_CORE = '[[AB_CORE]]';
   var MARK_ANCHOR = '[[AB_ANCHOR]]';
   var MARK_TAIL = '[[AB_TAIL]]';
@@ -726,11 +727,11 @@
     var h = [];
     h.push('<div class="ab-card" id="ab-panel">');
     h.push('  <div class="ab-head">');
-    h.push('    <div class="ab-head-left"><span class="ab-dot"></span><span class="ab-title">破甲 · ArmorBreaker</span><span class="ab-ver">v' + VERSION + '</span></div>');
+    h.push('    <div class="ab-head-left"><span class="ab-dot"></span><span class="ab-title">破甲 · ArmorBreaker</span><span class="ab-ver">v' + VERSION + ' · ' + BUILD + '</span></div>');
     h.push('    <label class="ab-switch"><input type="checkbox" id="ab-enabled"><i></i></label>');
     h.push('  </div>');
     h.push('  <div class="ab-body">');
-    h.push('    <div class="ab-row"><label class="ab-label">破甲模板</label><select id="ab-template" class="ab-input">' + optionHtml() + '</select></div>');
+    h.push('    <div class="ab-row"><label class="ab-label">破甲模板 <span id="ab-tpl-current" class="ab-mini"></span></label><div id="ab-tpl-row" class="ab-tpl-row">' + (function () { var s = ''; for (var kk in TEMPLATES) { s += '<div class="ab-tpl" data-key="' + kk + '">' + TEMPLATES[kk].label + '</div>'; } return s; })() + '</div></div>');
     h.push('    <div class="ab-row ab-core-block">');
     h.push('      <div class="ab-core-head"><label class="ab-label">模板正文 <span id="ab-override" class="ab-badge" style="display:none">已改</span></label><span class="ab-mini" id="ab-core-count"></span></div>');
     h.push('      <textarea id="ab-core" class="ab-input ab-ta" rows="9" placeholder="这里写要注入的正文，边打字边自动保存"></textarea>');
@@ -774,6 +775,19 @@
     return h.join('\n');
   }
 
+  function renderTemplateButtons() {
+    var row = el('ab-tpl-row');
+    if (row) {
+      var btns = row.querySelectorAll('.ab-tpl');
+      for (var i = 0; i < btns.length; i++) {
+        var k = btns[i].getAttribute('data-key');
+        btns[i].className = (k === settings.template) ? 'ab-tpl ab-on' : 'ab-tpl';
+      }
+    }
+    var cur = el('ab-tpl-current');
+    if (cur) cur.textContent = '当前：' + ((TEMPLATES[settings.template] || {}).label || settings.template) + (hasOverride(settings.template) ? ' · 已自定义' : '');
+  }
+
   function refreshStat() {
     if (!settings) return;
     var cur = coreTextFor(settings.template);
@@ -786,7 +800,7 @@
       var n = activeCore().length;
       if (!settings.enabled) stat.textContent = '破甲已关闭（不注入任何内容）';
       else if (!n) stat.textContent = '模板正文为空，当前不注入任何内容';
-      else stat.textContent = '注入 ' + n + ' 字 · 位置 ' + settings.position + ' / 深度 ' + settings.depth + ' · 角色 ' + settings.role + ' · 后端 ' + providerKind() + (settings.anchorEnabled && String(settings.anchorText || '').trim() ? ' · 常驻锚已启用' : '');
+      else stat.textContent = '注入 ' + n + ' 字 · 模板 ' + settings.template + ' · 位置 ' + settings.position + ' / 深度 ' + settings.depth + ' · ' + settings.role + ' · 后端 ' + providerKind() + (settings.anchorEnabled && String(settings.anchorText || '').trim() ? ' · 锚已启用' : ' · 锚未启用');
     }
   }
 
@@ -801,7 +815,7 @@
     }
     var e;
     if ((e = el('ab-enabled'))) e.checked = !!settings.enabled;
-    if ((e = el('ab-template'))) e.value = settings.template;
+    renderTemplateButtons();
     if ((e = el('ab-core'))) e.value = coreTextFor(settings.template);
     if ((e = el('ab-anchor'))) e.value = settings.anchorText || '';
     if ((e = el('ab-anchor-on'))) e.checked = !!settings.anchorEnabled;
@@ -846,10 +860,16 @@
   function bindUI() {
     var e;
     if ((e = el('ab-enabled'))) e.addEventListener('change', function () { settings.enabled = e.checked; commit(); });
-    if ((e = el('ab-template'))) e.addEventListener('change', function () {
-      if (!TEMPLATES[e.value]) { syncUI(); return; }
-      settings.template = e.value;
+    var tplRow = el('ab-tpl-row');
+    if (tplRow) tplRow.addEventListener('click', function (ev) {
+      var t = ev.target;
+      while (t && t !== tplRow && !(t.getAttribute && t.getAttribute('data-key'))) t = t.parentNode;
+      if (!t || t === tplRow) return;
+      var key = t.getAttribute('data-key');
+      if (!TEMPLATES[key]) return;
+      settings.template = key;
       commit();
+      toast('模板已切换到「' + TEMPLATES[key].label + '」');
     });
 
     var coreEl = el('ab-core');
@@ -1012,6 +1032,11 @@
   var bootTries = 0;
 
   function boot() {
+    if (window.__AB_BOOTED__) {
+      console.warn('[破甲] 检测到重复加载：可能装了两份扩展（public 和 data 各一份），第二份已停止');
+      return;
+    }
+    window.__AB_BOOTED__ = true;
     var ctx = getCtx();
     if (!ctx) {
       if (++bootTries < 60) return setTimeout(boot, 500);

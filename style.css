@@ -112,3 +112,17 @@
 }
 .ab-switch input:checked + i { background: rgba(229, 72, 77, .85); border-color: #e5484d; }
 .ab-switch input:checked + i::after { transform: translateX(18px); background: #fff; }
+
+/* v1.3.3 模板按钮 */
+.ab-tpl-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.ab-tpl {
+  padding: 6px 9px;
+  border: 1px solid var(--SmartThemeBorderColor, #3a3f4b);
+  border-radius: 7px;
+  background: var(--black50a, rgba(0, 0, 0, .3));
+  font-size: .84em;
+  cursor: pointer;
+  user-select: none;
+}
+.ab-tpl:active { transform: scale(.97); }
+.ab-tpl.ab-on { border-color: #e5484d; background: rgba(229, 72, 77, .28); color: #fff; font-weight: 600; }
