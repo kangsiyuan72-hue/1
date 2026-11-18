@@ -16,7 +16,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '1.3.1';
+  var VERSION = '1.3.2';
   var MARK_CORE = '[[AB_CORE]]';
   var MARK_ANCHOR = '[[AB_ANCHOR]]';
   var MARK_TAIL = '[[AB_TAIL]]';
@@ -274,6 +274,19 @@
     }
     if (!out.templateTexts || typeof out.templateTexts !== 'object') out.templateTexts = {};
     if (src.customCore && !out.templateTexts.custom) out.templateTexts.custom = String(src.customCore);
+
+    /* 迁移：早期版本可能把空值/非法值写进 template，表现就是下拉框空白 */
+    if (!TEMPLATES[out.template]) out.template = 'deep';
+    delete out.templateTexts[''];
+    delete out.templateTexts['undefined'];
+    delete out.templateTexts['null'];
+
+    /* 迁移：早期默认预填充带确认腔，会诱发"好的，我明白了"式开头，自动关掉 */
+    var OLD_PREFILL = '好的，我明白了。以下直接进入正文：';
+    if (String(out.prefillText || '').trim() === OLD_PREFILL) {
+      out.prefill = false;
+      out.prefillText = '';
+    }
     return out;
   }
 
@@ -779,6 +792,7 @@
 
   function syncUI() {
     if (!settings) return;
+    if (!TEMPLATES[settings.template]) settings.template = 'deep';
     /* 正在某个输入框里打字时不回写，免得输入被覆盖 */
     var act = document.activeElement;
     if (act && act.id && act.id.indexOf('ab-') === 0 && act.tagName !== 'SELECT' && act.type !== 'checkbox') {
@@ -832,7 +846,11 @@
   function bindUI() {
     var e;
     if ((e = el('ab-enabled'))) e.addEventListener('change', function () { settings.enabled = e.checked; commit(); });
-    if ((e = el('ab-template'))) e.addEventListener('change', function () { settings.template = e.value; commit(); });
+    if ((e = el('ab-template'))) e.addEventListener('change', function () {
+      if (!TEMPLATES[e.value]) { syncUI(); return; }
+      settings.template = e.value;
+      commit();
+    });
 
     var coreEl = el('ab-core');
     if (coreEl) coreEl.addEventListener('input', function () {
